@@ -1,0 +1,5 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>FounderFlow Ops</title>
+<style>body{font-family:system-ui;background:#0d0e16;color:#f1f5f9;padding:24px}.card{max-width:740px;margin:0 auto;background:#161826;padding:22px;border-radius:12px}input{background:#0d0e16;color:#fff;padding:8px;border-radius:6px;border:1px solid #2b2f4a;margin:4px;width:110px}button{background:#a855f7;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-weight:700;cursor:pointer;margin-top:8px}</style></head>
+<body><div class="card"><h1>FounderFlow Ops</h1><p>6-month SaaS user &amp; MRR trajectory simulator.</p>Users: <input id="u" type="number" value="250"> Growth %/mo: <input id="g" type="number" value="20"> ARPU ($): <input id="a" type="number" value="19"><br><button id="b">Simulate 6 Months</button><pre id="o"></pre></div>
+<script type="module">import { simulateGrowth } from "./sim.mjs"; document.getElementById("b").onclick = () => { document.getElementById("o").textContent = JSON.stringify(simulateGrowth({ users: Number(u.value), monthlyGrowthPct: Number(g.value), arpu: Number(a.value) }), null, 2); };</script></body></html>
