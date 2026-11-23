@@ -1,5 +1,322 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><title>FounderFlow Ops</title>
-<style>body{font-family:system-ui;background:#0d0e16;color:#f1f5f9;padding:24px}.card{max-width:740px;margin:0 auto;background:#161826;padding:22px;border-radius:12px}input{background:#0d0e16;color:#fff;padding:8px;border-radius:6px;border:1px solid #2b2f4a;margin:4px;width:110px}button{background:#a855f7;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-weight:700;cursor:pointer;margin-top:8px}</style></head>
-<body><div class="card"><h1>FounderFlow Ops</h1><p>6-month SaaS user &amp; MRR trajectory simulator.</p>Users: <input id="u" type="number" value="250"> Growth %/mo: <input id="g" type="number" value="20"> ARPU ($): <input id="a" type="number" value="19"><br><button id="b">Simulate 6 Months</button><pre id="o"></pre></div>
-<script type="module">import { simulateGrowth } from "./sim.mjs"; document.getElementById("b").onclick = () => { document.getElementById("o").textContent = JSON.stringify(simulateGrowth({ users: Number(u.value), monthlyGrowthPct: Number(g.value), arpu: Number(a.value) }), null, 2); };</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FounderFlow Ops — Venture-Grade SaaS Financial &amp; Monte Carlo Cockpit</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --surface: #101726;
+      --surface2: #162033;
+      --border: #24324a;
+      --fg: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --purple: #a78bfa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at top right, #112240 0%, var(--bg) 55%);
+      color: var(--fg);
+      line-height: 1.5;
+    }
+    .wrap { max-width: 1220px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
+    header {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+      gap: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 1.1rem; margin-bottom: 1.5rem;
+    }
+    .brand h1 { margin: 0; font-size: 1.65rem; letter-spacing: -0.02em; }
+    .brand p { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.92rem; }
+    .presets { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    button {
+      background: var(--surface2); color: var(--fg); border: 1px solid var(--border);
+      padding: 0.5rem 0.9rem; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer;
+      transition: all 0.15s;
+    }
+    button:hover { border-color: var(--accent); color: #fff; }
+    button.primary { background: linear-gradient(135deg, #0284c7, #2563eb); border-color: transparent; color: #fff; }
+    button.primary:hover { filter: brightness(1.1); }
+    .layout { display: grid; grid-template-columns: 330px 1fr; gap: 1.25rem; }
+    @media (max-width: 920px) { .layout { grid-template-columns: 1fr; } }
+    .panel {
+      background: rgba(16, 23, 38, 0.92); border: 1px solid var(--border);
+      border-radius: 14px; padding: 1.15rem; backdrop-filter: blur(8px);
+    }
+    .panel h2 { margin: 0 0 0.85rem; font-size: 1rem; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center; }
+    .field { margin-bottom: 0.72rem; }
+    .field label { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.25rem; }
+    .field input {
+      width: 100%; background: #090f1c; border: 1px solid var(--border); color: var(--fg);
+      border-radius: 7px; padding: 0.45rem 0.6rem; font-size: 0.9rem;
+    }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 0.8rem; margin-bottom: 1.15rem; }
+    .kpi {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 11px; padding: 0.85rem 0.95rem;
+    }
+    .kpi .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .kpi .val { font-size: 1.35rem; font-weight: 700; margin-top: 0.25rem; }
+    .kpi .sub { font-size: 0.78rem; color: var(--muted); margin-top: 0.15rem; }
+    .pill { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.76rem; font-weight: 700; }
+    .pill.good { background: rgba(34, 197, 94, 0.16); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.35); }
+    .pill.warn { background: rgba(245, 158, 11, 0.16); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); }
+    .pill.bad { background: rgba(239, 68, 68, 0.16); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35); }
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.15rem; }
+    @media (max-width: 780px) { .charts { grid-template-columns: 1fr; } }
+    svg.chart { width: 100%; height: 225px; display: block; background: #0a101d; border-radius: 10px; border: 1px solid #1d2a42; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+    th, td { padding: 0.52rem 0.6rem; border-bottom: 1px solid var(--border); text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: var(--muted); font-weight: 600; background: #0d1424; }
+    .mc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.7rem; margin-top: 0.6rem; }
+    .mc-box { background: #0b1222; border: 1px solid #1e2d48; border-radius: 9px; padding: 0.7rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.8rem; }
+    .table-scroll { max-height: 280px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <h1>FounderFlow Ops</h1>
+        <p>Venture-Grade SaaS Financial Operating System — Cohort Unit Economics, Bear/Base/Bull Sensitivity &amp; 1,000-Trial Monte Carlo Stress Testing</p>
+      </div>
+      <div class="presets">
+        <button data-preset="b2b_saas">B2B SaaS (Seed)</button>
+        <button data-preset="ai_infra">AI Infra (Pre-Seed)</button>
+        <button data-preset="plg_devtool">PLG DevTool</button>
+        <button class="primary" id="exportMemo">Export Investor Memo (.md)</button>
+        <button id="exportCsv">Export CSV</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="panel">
+        <h2>Operating Assumptions</h2>
+        <div class="field"><label>Starting MRR ($)</label><input id="startingMrr" type="number" step="1000" /></div>
+        <div class="field"><label>Monthly New Growth (%)</label><input id="monthlyGrowthPct" type="number" step="0.5" /></div>
+        <div class="field"><label>Monthly Logo Churn (%)</label><input id="monthlyLogoChurnPct" type="number" step="0.2" /></div>
+        <div class="field"><label>Monthly Expansion (%)</label><input id="expansionPct" type="number" step="0.2" /></div>
+        <div class="field"><label>Gross Margin (%)</label><input id="grossMarginPct" type="number" step="1" /></div>
+        <div class="field"><label>Starting Cash ($)</label><input id="startingCash" type="number" step="25000" /></div>
+        <div class="field"><label>Fixed Monthly Burn ($)</label><input id="monthlyFixedBurn" type="number" step="2000" /></div>
+        <div class="field"><label>S&amp;M Spend (% of MRR)</label><input id="salesMarketingPct" type="number" step="1" /></div>
+        <div class="field"><label>Blended CAC ($)</label><input id="cac" type="number" step="50" /></div>
+        <div class="field"><label>ARPA ($/mo)</label><input id="arpa" type="number" step="10" /></div>
+        <div class="field"><label>Horizon (Months)</label><input id="horizonMonths" type="number" min="6" max="36" step="1" /></div>
+      </aside>
+
+      <main>
+        <section class="kpis" id="kpis"></section>
+
+        <section class="charts">
+          <div class="panel">
+            <h2>ARR Trajectory (Bear / Base / Bull)</h2>
+            <svg class="chart" id="arrChart" viewBox="0 0 460 225"></svg>
+          </div>
+          <div class="panel">
+            <h2>Cash Balance &amp; Burn Runway</h2>
+            <svg class="chart" id="cashChart" viewBox="0 0 460 225"></svg>
+          </div>
+        </section>
+
+        <section class="panel" style="margin-bottom: 1.15rem;">
+          <h2>Monte Carlo Stress Test <span class="pill good" id="mcBadge">1,000 Reproducible Trials</span></h2>
+          <div class="mc-grid" id="mcGrid"></div>
+        </section>
+
+        <section class="panel" style="margin-bottom: 1.15rem;">
+          <h2>Scenario Sensitivity Matrix</h2>
+          <table>
+            <thead>
+              <tr><th>Scenario</th><th>Ending ARR</th><th>Ending Cash</th><th>NDR</th><th>Rule of 40</th><th>Readiness</th></tr>
+            </thead>
+            <tbody id="scenBody"></tbody>
+          </table>
+        </section>
+
+        <section class="panel">
+          <h2>Monthly Operating Ledger</h2>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th>Month</th><th>End MRR</th><th>ARR</th><th>Gross Profit</th><th>Total Burn</th><th>Net Flow</th><th>Ending Cash</th></tr>
+              </thead>
+              <tbody id="ledgerBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      STARTUP_PRESETS,
+      simulateGrowth,
+      runScenarioMatrix,
+      runMonteCarlo,
+      buildInvestorMemo
+    } from "./sim.mjs";
+
+    const fields = [
+      "startingMrr", "monthlyGrowthPct", "monthlyLogoChurnPct", "expansionPct",
+      "grossMarginPct", "startingCash", "monthlyFixedBurn", "salesMarketingPct",
+      "cac", "arpa", "horizonMonths"
+    ];
+
+    const fmt = (n) => {
+      const sign = n < 0 ? "-" : "";
+      const abs = Math.abs(n);
+      if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(2)}M`;
+      if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(1)}k`;
+      return `${sign}$${Math.round(abs)}`;
+    };
+
+    function readConfig() {
+      const out = {};
+      for (const id of fields) out[id] = Number(document.getElementById(id).value);
+      return out;
+    }
+
+    function applyPreset(key) {
+      const p = STARTUP_PRESETS[key];
+      for (const id of fields) document.getElementById(id).value = p[id];
+      render();
+    }
+
+    function drawMultiLineChart(svgId, seriesList, zeroLine = false) {
+      const svg = document.getElementById(svgId);
+      const W = 460, H = 225, padL = 52, padR = 14, padT = 18, padB = 28;
+      const allVals = seriesList.flatMap(s => s.values);
+      if (zeroLine) allVals.push(0);
+      const minV = Math.min(...allVals);
+      const maxV = Math.max(...allVals, minV + 1);
+      const n = seriesList[0].values.length;
+
+      const x = (i) => padL + (i / Math.max(1, n - 1)) * (W - padL - padR);
+      const y = (v) => padT + (1 - (v - minV) / (maxV - minV)) * (H - padT - padB);
+
+      let html = "";
+      for (let g = 0; g <= 4; g++) {
+        const val = minV + (g / 4) * (maxV - minV);
+        const yy = y(val);
+        html += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" stroke="#1e293b" stroke-width="1" />`;
+        html += `<text x="${padL - 6}" y="${yy + 3}" fill="#64748b" font-size="10" text-anchor="end">${fmt(val)}</text>`;
+      }
+      if (zeroLine && minV < 0 && maxV > 0) {
+        const zy = y(0);
+        html += `<line x1="${padL}" y1="${zy}" x2="${W - padR}" y2="${zy}" stroke="#ef4444" stroke-dasharray="4 3" stroke-width="1.3" />`;
+      }
+      seriesList.forEach(s => {
+        const d = s.values.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+        html += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.width || 2.2}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ""} />`;
+      });
+      // Legend
+      seriesList.forEach((s, idx) => {
+        const lx = padL + idx * 105;
+        html += `<rect x="${lx}" y="${H - 13}" width="10" height="4" fill="${s.color}" rx="2" />`;
+        html += `<text x="${lx + 14}" y="${H - 9}" fill="#94a3b8" font-size="10">${s.label}</text>`;
+      });
+      svg.innerHTML = html;
+    }
+
+    let lastState = null;
+
+    function render() {
+      const cfg = readConfig();
+      const scenarios = runScenarioMatrix(cfg);
+      const base = scenarios.base;
+      const mc = runMonteCarlo(cfg, 1000, 20261123);
+      lastState = { base, scenarios, mc };
+
+      const s = base.summary;
+      const gradeClass = s.readinessScore >= 75 ? "good" : s.readinessScore >= 55 ? "warn" : "bad";
+      document.getElementById("kpis").innerHTML = `
+        <div class="kpi"><div class="label">Ending ARR (M${cfg.horizonMonths})</div><div class="val" style="color:#38bdf8">${fmt(s.endingArr)}</div><div class="sub">From ${fmt(s.startingArr)} (${s.annualizedGrowthPct}%/yr)</div></div>
+        <div class="kpi"><div class="label">Runway / Cash Status</div><div class="val" style="color:${s.cashOutMonth ? '#f87171' : '#4ade80'}">${s.cashOutMonth ? `Out M${s.cashOutMonth}` : s.profitabilityMonth ? `Alive (M${s.profitabilityMonth})` : `${s.runwayMonths} mo`}</div><div class="sub">Ending Cash: ${fmt(s.endingCash)}</div></div>
+        <div class="kpi"><div class="label">Unit Economics</div><div class="val">${s.ltvCacRatio}x</div><div class="sub">Payback ${s.cacPaybackMonths}m | NDR ${s.annualNdrPct}%</div></div>
+        <div class="kpi"><div class="label">Efficiency</div><div class="val">R40: ${s.ruleOf40}</div><div class="sub">Burn Multiple: ${s.burnMultiple}x</div></div>
+        <div class="kpi"><div class="label">Investor Readiness</div><div class="val">${s.readinessScore}/100</div><div class="sub"><span class="pill ${gradeClass}">${s.readinessGrade}</span></div></div>
+      `;
+
+      drawMultiLineChart("arrChart", [
+        { label: "Bull ARR", color: "#22c55e", values: scenarios.bull.months.map(m => m.arr), dash: "4 3", width: 1.8 },
+        { label: "Base ARR", color: "#38bdf8", values: base.months.map(m => m.arr), width: 2.6 },
+        { label: "Bear ARR", color: "#f59e0b", values: scenarios.bear.months.map(m => m.arr), dash: "4 3", width: 1.8 }
+      ]);
+
+      drawMultiLineChart("cashChart", [
+        { label: "Bull Cash", color: "#a78bfa", values: scenarios.bull.months.map(m => m.endingCash), dash: "4 3", width: 1.7 },
+        { label: "Base Cash", color: "#22c55e", values: base.months.map(m => m.endingCash), width: 2.6 },
+        { label: "Bear Cash", color: "#ef4444", values: scenarios.bear.months.map(m => m.endingCash), dash: "4 3", width: 1.7 }
+      ], true);
+
+      document.getElementById("mcBadge").className = `pill ${mc.survivalRatePct >= 80 ? "good" : mc.survivalRatePct >= 50 ? "warn" : "bad"}`;
+      document.getElementById("mcBadge").textContent = `${mc.survivalRatePct}% Survival (${mc.trials.toLocaleString()} Trials)`;
+      document.getElementById("mcGrid").innerHTML = `
+        <div class="mc-box"><div class="label">Zero Cash-Out Prob</div><div class="val" style="font-size:1.15rem;font-weight:700">${mc.survivalRatePct}%</div></div>
+        <div class="mc-box"><div class="label">Profitability Prob</div><div class="val" style="font-size:1.15rem;font-weight:700">${mc.profitabilityRatePct}%</div></div>
+        <div class="mc-box"><div class="label">ARR P10 (Downside)</div><div class="val" style="font-size:1.15rem;font-weight:700">${fmt(mc.arrP10)}</div></div>
+        <div class="mc-box"><div class="label">ARR P50 (Median)</div><div class="val" style="font-size:1.15rem;font-weight:700;color:#38bdf8">${fmt(mc.arrP50)}</div></div>
+        <div class="mc-box"><div class="label">ARR P90 (Upside)</div><div class="val" style="font-size:1.15rem;font-weight:700;color:#4ade80">${fmt(mc.arrP90)}</div></div>
+      `;
+
+      document.getElementById("scenBody").innerHTML = ["bear", "base", "bull"].map(k => {
+        const sc = scenarios[k].summary;
+        return `<tr>
+          <td><strong>${k.toUpperCase()}</strong></td>
+          <td>${fmt(sc.endingArr)}</td>
+          <td>${fmt(sc.endingCash)}</td>
+          <td>${sc.annualNdrPct}%</td>
+          <td>${sc.ruleOf40}</td>
+          <td>${sc.readinessScore}/100 (${sc.readinessGrade})</td>
+        </tr>`;
+      }).join("");
+
+      document.getElementById("ledgerBody").innerHTML = base.months.map(r => `
+        <tr>
+          <td>Month ${r.month}</td>
+          <td>${fmt(r.endMrr)}</td>
+          <td>${fmt(r.arr)}</td>
+          <td>${fmt(r.grossProfit)}</td>
+          <td>${fmt(r.totalBurn)}</td>
+          <td style="color:${r.netCashFlow >= 0 ? '#4ade80' : '#f87171'}">${fmt(r.netCashFlow)}</td>
+          <td style="color:${r.endingCash >= 0 ? '#e2e8f0' : '#f87171'}">${fmt(r.endingCash)}</td>
+        </tr>
+      `).join("");
+    }
+
+    function downloadText(filename, text, mime = "text/plain") {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+      a.download = filename;
+      a.click();
+    }
+
+    document.querySelectorAll("[data-preset]").forEach(btn => {
+      btn.addEventListener("click", () => applyPreset(btn.dataset.preset));
+    });
+    fields.forEach(id => document.getElementById(id).addEventListener("input", render));
+
+    document.getElementById("exportMemo").addEventListener("click", () => {
+      if (!lastState) return;
+      const md = buildInvestorMemo(lastState.base, lastState.scenarios, lastState.mc);
+      downloadText("founderflow-investor-memo.md", md, "text/markdown");
+    });
+    document.getElementById("exportCsv").addEventListener("click", () => {
+      if (!lastState) return;
+      const rows = ["Month,StartMRR,NewMRR,ExpansionMRR,ChurnedMRR,EndMRR,ARR,GrossProfit,TotalBurn,NetCashFlow,EndingCash"];
+      lastState.base.months.forEach(r => rows.push([r.month, r.startMrr, r.newMrr, r.expansionMrr, r.churnedMrr, r.endMrr, r.arr, r.grossProfit, r.totalBurn, r.netCashFlow, r.endingCash].join(",")));
+      downloadText("founderflow-ledger.csv", rows.join("\n"), "text/csv");
+    });
+
+    applyPreset("b2b_saas");
+  </script>
+</body>
+</html>
